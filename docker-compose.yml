@@ -1,0 +1,15 @@
+services:
+  discodrome:
+    image: 7eventy7/discodrome:latest
+    container_name: discodrome
+    restart: unless-stopped
+    env_file:
+      - data.env.example
+    environment:
+      - SUBSONIC_SERVER=${SUBSONIC_SERVER}
+      - SUBSONIC_USER=${SUBSONIC_USER}
+      - SUBSONIC_PASSWORD=${SUBSONIC_PASSWORD}
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+      - DISCORD_TEST_GUILD=${DISCORD_TEST_GUILD}
+      - DISCORD_OWNER_ID=${DISCORD_OWNER_ID}
+      - BOT_STATUS=${BOT_STATUS}
