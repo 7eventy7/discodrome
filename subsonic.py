@@ -215,7 +215,7 @@ async def check_subsonic_error(response: dict[str, any]) -> bool:
     if isinstance(response, aiohttp.ClientResponse):
         try:
             response = await response.json()
-        except Exception as e:
+        except Exception:
             return False
 
     if response["subsonic-response"]["status"] == "ok":
@@ -318,7 +318,7 @@ async def search_album(query: str) -> list[Album]:
             return None
         try:
             albumid = search_data["subsonic-response"]["searchResult3"]["album"][0]["id"]
-        except Exception as e:
+        except Exception:
             return None
         logger.debug("Album ID: %s", albumid)
     

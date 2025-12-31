@@ -92,8 +92,9 @@ A discord music bot that seamlessly streams music from your personal music serve
 
 ## 🛠️ Technical Stack
 
-- Discord.js v14
-- Node.js
+- Python 3.10+
+- discord.py
+- aiohttp
 - Subsonic API
 - Docker
 - FFmpeg for audio processing

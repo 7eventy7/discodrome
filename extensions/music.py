@@ -114,7 +114,7 @@ class MusicCog(commands.Cog):
             # Send our query to the subsonic API and retrieve a list of 1 song
             songs = await subsonic.search(query, artist_count=0, album_count=0, song_count=1)
             if songs == "Error":
-                await ui.ErrMsg.msg(interaction, f"An api error has occurred and has been logged to console. Please contact an administrator.")
+                await ui.ErrMsg.msg(interaction, "An api error has occurred and has been logged to console. Please contact an administrator.")
                 return
 
             # Display an error if the query returned no results
@@ -131,7 +131,7 @@ class MusicCog(commands.Cog):
 
             # Send query to subsonic API and retrieve a list of 1 album
             album = await subsonic.search_album(query)
-            if album == None:
+            if album is None:
                 await ui.ErrMsg.msg(interaction, f"No album found for **{query}**.")
                 return
             
@@ -145,8 +145,8 @@ class MusicCog(commands.Cog):
 
             # Send query to subsonic API and retrieve a list of all playlists
             playlists = await subsonic.get_user_playlists()
-            if playlists == None:
-                await ui.ErrMsg.msg(interaction, f"No playlists found.")
+            if playlists is None:
+                await ui.ErrMsg.msg(interaction, "No playlists found.")
                 return
             
             # Check if the specific playlist exists and get it's contents
@@ -156,12 +156,12 @@ class MusicCog(commands.Cog):
                 if playlist["name"] == query:
                     playlist_id = playlist["id"]
                     break
-            if playlist_id == None:
+            if playlist_id is None:
                 await ui.ErrMsg.msg(interaction, f"No playlist found for **{query}**.")
                 return
             else:
                 playlist = await subsonic.get_playlist(playlist_id)
-            if playlist == None:
+            if playlist is None:
                 # If we end up here then the following error message doesn't really cover it... It's more likely an error in this code
                 await ui.ErrMsg.msg(interaction, f"No playlist found for **{query}**.")
                 return
@@ -376,7 +376,7 @@ class MusicCog(commands.Cog):
 
         # Send our query to the subsonic API and retrieve list of albums in artist's discography
         albums = await subsonic.get_artist_discography(artist)
-        if albums == None:
+        if albums is None:
             await ui.ErrMsg.msg(interaction, f"No discography found for **{artist}**.")
             return
         
@@ -405,8 +405,8 @@ class MusicCog(commands.Cog):
     async def list_playlists(self, interaction):
         # Send query to subsonic API and retrieve a list of all playlists
         playlists = await subsonic.get_user_playlists()
-        if playlists == None:
-            await ui.ErrMsg.msg(interaction, f"No playlists found.")
+        if playlists is None:
+            await ui.ErrMsg.msg(interaction, "No playlists found.")
             return
 
         # Create a string to store the output

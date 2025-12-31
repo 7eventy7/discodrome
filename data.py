@@ -1,9 +1,3 @@
-''' Data used throughout the application '''
-
-''' 
-    TODO: Save one properties pickle file per-guild, instead of saving all in one file at once
-'''
-
 import logging
 import os
 import pickle
@@ -13,6 +7,13 @@ from typing import Final
 
 from subsonic import Song
 from player import Player
+
+''' Data used throughout the application '''
+
+''' 
+    TODO: Save one properties pickle file per-guild, instead of saving all in one file at once
+'''
+
 
 logger = logging.getLogger(__name__)
 

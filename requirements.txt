@@ -1,4 +1,5 @@
-discord
-pynacl
+discord.py
+aiohttp
+PyNaCl
 python-dotenv
 requests
