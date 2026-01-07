@@ -76,6 +76,7 @@ A discord music bot that seamlessly streams music from your personal music serve
 | `SUBSONIC_SERVER` | URL of your Subsonic server (include http/https) | Yes |
 | `SUBSONIC_USER` | Username for your Subsonic server | Yes |
 | `SUBSONIC_PASSWORD` | Password for your Subsonic server | Yes |
+| `SUBSONIC_AUTH_MODE` | Authentication mode: `plaintext` (default) or `token` (more secure, required by some servers like Navidrome) | No |
 | `DISCORD_BOT_TOKEN` | Your Discord bot token | Yes |
 | `DISCORD_TEST_GUILD` | Discord server ID where commands will be registered | Yes |
 | `DISCORD_OWNER_ID` | Your Discord user ID | Yes |
