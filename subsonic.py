@@ -14,7 +14,17 @@ logger = logging.getLogger(__name__)
 
 
 def _get_auth_params() -> dict:
-    ''' Generate authentication parameters based on SUBSONIC_AUTH_MODE '''
+    """
+    Generate authentication parameters based on SUBSONIC_AUTH_MODE.
+    
+    Supports two authentication modes:
+    - plaintext: Uses password directly (API v1.15.0)
+    - token: Uses MD5(password + salt) for enhanced security (API v1.16.0)
+    
+    Returns:
+        dict: Authentication parameters including username, version, client name,
+              format, and either password (plaintext mode) or token+salt (token mode)
+    """
     auth_params = {
         "u": env.SUBSONIC_USER,
         "c": "discodrome",
@@ -25,6 +35,8 @@ def _get_auth_params() -> dict:
         # Use token-based authentication with salt
         # Generate a new salt for each request for security
         salt = secrets.token_hex(16)
+        # Note: MD5 is used here because it's required by the Subsonic API specification,
+        # despite being cryptographically weak. This is a protocol requirement.
         token = hashlib.md5((env.SUBSONIC_PASSWORD + salt).encode()).hexdigest()
         auth_params["t"] = token
         auth_params["s"] = salt
