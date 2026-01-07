@@ -3,6 +3,8 @@
 import logging
 import os
 import aiohttp
+import hashlib
+import secrets
 
 from pathlib import Path
 
@@ -11,14 +13,40 @@ from util import env
 logger = logging.getLogger(__name__)
 
 
-# Parameters for the Subsonic API
-SUBSONIC_REQUEST_PARAMS = {
+def _get_auth_params() -> dict:
+    """
+    Generate authentication parameters based on SUBSONIC_AUTH_MODE.
+    
+    Supports two authentication modes:
+    - plaintext: Uses password directly (API v1.15.0)
+    - token: Uses MD5(password + salt) for enhanced security (API v1.16.0)
+    
+    Returns:
+        dict: Authentication parameters including username, version, client name,
+              format, and either password (plaintext mode) or token+salt (token mode)
+    """
+    auth_params = {
         "u": env.SUBSONIC_USER,
-        "p": env.SUBSONIC_PASSWORD,
-        "v": "1.15.0",
         "c": "discodrome",
         "f": "json"
     }
+    
+    if env.SUBSONIC_AUTH_MODE == "token":
+        # Use token-based authentication with salt
+        # Generate a new salt for each request for security
+        salt = secrets.token_hex(16)
+        # Note: MD5 is used here because it's required by the Subsonic API specification,
+        # despite being cryptographically weak. This is a protocol requirement.
+        token = hashlib.md5((env.SUBSONIC_PASSWORD + salt).encode()).hexdigest()
+        auth_params["t"] = token
+        auth_params["s"] = salt
+        auth_params["v"] = "1.16.0"
+    else:
+        # Use plaintext authentication (default)
+        auth_params["p"] = env.SUBSONIC_PASSWORD
+        auth_params["v"] = "1.15.0"
+    
+    return auth_params
 
 globalsession = None
 
@@ -159,6 +187,10 @@ class Playlist():
         self._songs: list[Song] = []
         for song in json_object["entry"]:
             self._songs.append(Song(song))
+        
+        # If playlist has no cover art, try to use the first song's cover art
+        if not self._cover_id and self._songs:
+            self._cover_id = self._songs[0].cover_id
     
     @property
     def playlist_id(self) -> str:
@@ -199,7 +231,7 @@ async def ping_api() -> bool:
     ''' Send a ping request to the subsonic API '''
 
     session = await get_session()
-    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/ping.view", params=SUBSONIC_REQUEST_PARAMS) as response:
+    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/ping.view", params=_get_auth_params()) as response:
         response.raise_for_status()
         ping_data = await response.json()
         if await check_subsonic_error(ping_data):
@@ -273,7 +305,7 @@ async def search(query: str, *, artist_count: int=00, artist_offset: int=0, albu
         "songOffset": str(song_offset)
     }
 
-    params = SUBSONIC_REQUEST_PARAMS | search_params
+    params = _get_auth_params() | search_params
 
     session = await get_session()
     async with await session.get(f"{env.SUBSONIC_SERVER}/rest/search3.view", params=params) as response:
@@ -308,7 +340,7 @@ async def search_album(query: str) -> list[Album]:
         "songOffset": "0"
     }
 
-    params = SUBSONIC_REQUEST_PARAMS | search_params
+    params = _get_auth_params() | search_params
 
     session = await get_session()
     async with await session.get(f"{env.SUBSONIC_SERVER}/rest/search3.view", params=params) as response:
@@ -326,7 +358,7 @@ async def search_album(query: str) -> list[Album]:
         "id": albumid
     }
 
-    album_params = SUBSONIC_REQUEST_PARAMS | album_params
+    album_params = _get_auth_params() | album_params
 
     async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getAlbum.view", params=album_params) as response:
         response.raise_for_status()
@@ -348,7 +380,7 @@ async def get_user_playlists() -> list[int]:
     ''' Retrive metadata of all playlists the Subsonic user is authorised to play '''
 
     session = await get_session()
-    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getPlaylists.view", params=SUBSONIC_REQUEST_PARAMS) as response:
+    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getPlaylists.view", params=_get_auth_params()) as response:
         response.raise_for_status()
         query_data = await response.json()
         if await check_subsonic_error(query_data):
@@ -366,7 +398,7 @@ async def get_playlist(id: str) -> Playlist:
         "id": id
     }
 
-    params = SUBSONIC_REQUEST_PARAMS | playlist_params
+    params = _get_auth_params() | playlist_params
 
     session = await get_session()
     async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getPlaylist.view", params=params) as response:
@@ -396,7 +428,7 @@ async def get_artist_id(query: str) -> str:
         "songOffset": "0"
     }
 
-    params = SUBSONIC_REQUEST_PARAMS | search_params
+    params = _get_auth_params() | search_params
 
     session = await get_session()
     async with await session.get(f"{env.SUBSONIC_SERVER}/rest/search3.view", params=params) as response:
@@ -418,7 +450,7 @@ async def get_artist_discography(query: str) -> Album:
         "id": artistid
     }
 
-    artist_params = SUBSONIC_REQUEST_PARAMS | artist_params
+    artist_params = _get_auth_params() | artist_params
 
     session = await get_session()
     async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getArtist.view", params=artist_params) as response:
@@ -436,7 +468,7 @@ async def get_artist_discography(query: str) -> Album:
         album_params = {
             "id": albumid
         }
-        album_params = SUBSONIC_REQUEST_PARAMS | album_params
+        album_params = _get_auth_params() | album_params
         async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getAlbum.view", params=album_params) as response:
             response.raise_for_status()
             album = await response.json()
@@ -451,6 +483,10 @@ async def get_artist_discography(query: str) -> Album:
 
 async def get_album_art_file(cover_id: str, size: int=300) -> str:
     ''' Request album art from the subsonic API '''
+    # Return placeholder if cover_id is empty or None
+    if not cover_id:
+        return "resources/cover_not_found.jpg"
+    
     target_path = f"cache/{cover_id}.jpg"
 
     # Check if the cover art is already cached (TODO: Check for last-modified date?)
@@ -462,7 +498,7 @@ async def get_album_art_file(cover_id: str, size: int=300) -> str:
         "size": str(size)
     }
 
-    params = SUBSONIC_REQUEST_PARAMS | cover_params
+    params = _get_auth_params() | cover_params
 
     session = await get_session()
     async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getCoverArt", params=params) as response:
@@ -498,7 +534,7 @@ async def get_random_songs(size: int=None, genre: str=None, from_year: int=None,
         search_params["musicFolderId"] = music_folder_id
 
 
-    params = SUBSONIC_REQUEST_PARAMS | search_params
+    params = _get_auth_params() | search_params
 
     session = await get_session()
     async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getRandomSongs.view", params=params) as response:
@@ -528,7 +564,7 @@ async def get_similar_songs(song_id: str, count: int=1) -> list[Song]:
         "count": count
     }
 
-    params = SUBSONIC_REQUEST_PARAMS | search_params
+    params = _get_auth_params() | search_params
 
     session = await get_session()
     async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getSimilarSongs.view", params=params) as response:
@@ -562,7 +598,7 @@ async def stream(stream_id: str):
         # TODO: handle other params
     }
 
-    params = SUBSONIC_REQUEST_PARAMS | stream_params
+    params = _get_auth_params() | stream_params
 
     session = await get_session()
     async with await session.get(f"{env.SUBSONIC_SERVER}/rest/stream.view", params=params, timeout=20) as response:

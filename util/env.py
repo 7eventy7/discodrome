@@ -12,5 +12,6 @@ DISCORD_OWNER_ID: Final[int] = int(os.getenv("DISCORD_OWNER_ID"))
 SUBSONIC_SERVER: Final[str] = os.getenv("SUBSONIC_SERVER")
 SUBSONIC_USER: Final[str] = os.getenv("SUBSONIC_USER")
 SUBSONIC_PASSWORD: Final[str] = os.getenv("SUBSONIC_PASSWORD")
+SUBSONIC_AUTH_MODE: Final[str] = os.getenv("SUBSONIC_AUTH_MODE", "plaintext")
 
 BOT_STATUS: Final[str] = os.getenv("BOT_STATUS")
