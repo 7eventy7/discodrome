@@ -187,6 +187,10 @@ class Playlist():
         self._songs: list[Song] = []
         for song in json_object["entry"]:
             self._songs.append(Song(song))
+        
+        # If playlist has no cover art, try to use the first song's cover art
+        if not self._cover_id and self._songs and len(self._songs) > 0:
+            self._cover_id = self._songs[0].cover_id
     
     @property
     def playlist_id(self) -> str:
@@ -479,6 +483,10 @@ async def get_artist_discography(query: str) -> Album:
 
 async def get_album_art_file(cover_id: str, size: int=300) -> str:
     ''' Request album art from the subsonic API '''
+    # Return placeholder if cover_id is empty or None
+    if not cover_id:
+        return "resources/cover_not_found.jpg"
+    
     target_path = f"cache/{cover_id}.jpg"
 
     # Check if the cover art is already cached (TODO: Check for last-modified date?)
