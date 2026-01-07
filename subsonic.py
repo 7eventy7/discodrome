@@ -189,7 +189,7 @@ class Playlist():
             self._songs.append(Song(song))
         
         # If playlist has no cover art, try to use the first song's cover art
-        if not self._cover_id and self._songs and len(self._songs) > 0:
+        if not self._cover_id and self._songs:
             self._cover_id = self._songs[0].cover_id
     
     @property
