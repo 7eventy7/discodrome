@@ -18,8 +18,8 @@ def _get_auth_params() -> dict:
     Generate authentication parameters based on SUBSONIC_AUTH_MODE.
     
     Supports two authentication modes:
-    - plaintext: Uses password directly (API v1.15.0)
-    - token: Uses MD5(password + salt) for enhanced security (API v1.16.0)
+    - plaintext: Uses the configured password directly.
+    - token: Uses MD5(password + salt) for enhanced security (available since Subsonic API v1.13.0; this client requests v1.16.0).
     
     Returns:
         dict: Authentication parameters including username, version, client name,
