@@ -733,7 +733,7 @@ async def list_albums(
     if genre is not None:
         search_params["genre"] = genre
 
-    params = SUBSONIC_REQUEST_PARAMS | search_params
+    params = _get_auth_params() | search_params
 
     session = await get_session()
     async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getAlbumList.view", params=params) as response:
@@ -758,7 +758,7 @@ async def get_album(id: str) -> Album:
         "id": id
     }
 
-    params = SUBSONIC_REQUEST_PARAMS | album_params
+    params = _get_auth_params() | album_params
 
     session = await get_session()
     async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getAlbum.view", params=params) as response:
