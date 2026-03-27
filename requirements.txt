@@ -1,4 +1,5 @@
-discord
+discord.py>=2.7.0
+davey
 pynacl
 python-dotenv
 requests

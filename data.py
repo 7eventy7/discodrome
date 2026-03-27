@@ -16,15 +16,12 @@ from player import Player
 
 logger = logging.getLogger(__name__)
 
-# Guild data
-_default_data: dict[str, any] = {
-    "player": None,
-}
-
 class GuildData():
     ''' Class that holds all Discodrome data specific to a guild (not saved to disk) '''
     def __init__(self) -> None:
-        self._data = _default_data
+        self._data = {
+            "player": None,
+        }
         self.player = Player()
         if self.player.queue is None:
             self.player.queue = []

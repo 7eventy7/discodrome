@@ -1,7 +1,9 @@
+from typing import List
+
 import discord
 import logging
 import asyncio
-from discord import app_commands
+from discord import app_commands, Interaction
 from discord.ext import commands
 
 from random import randint 
@@ -9,8 +11,10 @@ import data
 import copy
 import subsonic
 import ui
+from pagination import ListPaginator
 
 from discodrome import DiscodromeClient
+from util import env
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +26,7 @@ class MusicCog(commands.Cog):
     def __init__(self, bot: DiscodromeClient):
         self.bot = bot
 
-    async def get_voice_client(self, interaction: discord.Interaction, *, should_connect: bool=False) -> discord.VoiceClient:
+    async def get_voice_client(self, interaction: Interaction, *, should_connect: bool=False) -> discord.VoiceClient:
         ''' Returns a voice client instance for the current guild '''
 
         # Get the voice client for the guild
@@ -68,51 +72,226 @@ class MusicCog(commands.Cog):
                 
         return voice_client
 
+
+
+    @commands.command(name="p")
+    async def play_prefix(self, ctx: commands.Context, *, query: str):
+        ''' Play a track matching the given query '''
+
+        if ctx.author.voice is None:
+            await ctx.send("You are not connected to a voice channel.")
+            return
+
+        player = data.guild_data(ctx.guild.id).player
+
+        result = (await subsonic.search(query, artist_count=0, album_count=0, song_count=1))
+
+        if not result.succeeded:
+            await ctx.send(f"An error has occurred while searching for **{query}**. Code: {result.error_code}.")
+            return
+
+        songs = result.songs
+
+        if len(songs) == 0:
+            await ctx.send(f"No track found for **{query}**.")
+            return
+
+        voice_client = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
+        if voice_client is None:
+            try:
+                voice_client = await ctx.author.voice.channel.connect(timeout=10.0, reconnect=True)
+            except Exception as e:
+                await ctx.send(f"Failed to connect to voice channel: {e}")
+                return
+
+        player.channel = ctx.channel
+        player.queue.append(songs[0])
+        await ctx.send(f"Queued **{songs[0].title}** by {songs[0].artist}")
+        await player.play_audio_queue(voice_client)
+
+
+    
+    @commands.command(name="n")
+    async def play_next_prefix(self, ctx: commands.Context, *, query: str):
+        ''' Search for a track and place it next in the queue - prefix version '''
+        # This is a heinous duplication of efforts made above.
+        # TODO: Please refactor.
+
+        if ctx.author.voice is None:
+            await ctx.send("You are not connected to a voice channel.")
+            return
+
+        player = data.guild_data(ctx.guild.id).player
+
+        result = (await subsonic.search(query, artist_count=0, album_count=0, song_count=1))
+
+        if not result.succeeded:
+            await ctx.send(f"An error has occurred while searching for **{query}**. Code: {result.error_code}.")
+            return
+
+        songs = result.songs
+
+        if len(songs) == 0:
+            await ctx.send(f"No track found for **{query}**.")
+            return
+
+        voice_client = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
+        if voice_client is None:
+            try:
+                voice_client = await ctx.author.voice.channel.connect(timeout=10.0, reconnect=True)
+            except Exception as e:
+                await ctx.send(f"Failed to connect to voice channel: {e}")
+                return
+
+        player.channel = ctx.channel
+        player.queue.insert(0, songs[0])
+        await ctx.send(f"Queued **{songs[0].title}** by {songs[0].artist}")
+        await player.play_audio_queue(voice_client)
+
+
+
+    @commands.command(name="s")
+    async def skip_prefix(self, ctx: commands.Context):
+        ''' Skip the current track - prefix version '''
+
+        voice_client = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
+
+        if voice_client is None:
+            await ctx.send("I am not connected to a voice channel.")
+            return
+
+        if not voice_client.is_playing():
+            await ctx.send("I am not currently playing anything.")
+            return
+
+        player = data.guild_data(ctx.guild.id).player
+        player.channel = ctx.channel
+        await player.skip_track(voice_client)
+        await ctx.send(f"Track skipped - now playing **{player.current_song.title}** by {player.current_song.artist}")
+
+
+    
+    @commands.command(name="q")
+    async def queue_prefix(self, ctx: commands.Context):
+        ''' View the current queue - prefix version '''
+
+        queue = data.guild_data(ctx.guild.id).player.queue
+
+        output = ""
+
+        if data.guild_data(ctx.guild.id).player.current_song is not None:
+            song = data.guild_data(ctx.guild.id).player.current_song
+            output += f"**Now Playing:**\n{song.title} - *{song.artist}*\n{song.album} ({song.duration_printable})\n\n"
+
+        for i, song in enumerate(queue):
+            strtoadd = f"{i+1}. **{song.title}** - *{song.artist}*\n{song.album} ({song.duration_printable})\n\n"
+            if len(output+strtoadd) < 1990:
+                output += strtoadd
+            else:
+                remaining = len(queue) - i
+                output += f"**And {remaining} more...**"
+                break
+
+        if output == "":
+            output = "Queue is empty!"
+
+        await ctx.send(output)
+
+
+
+    async def play_querytype_autocomplete(
+        self,
+        interaction: Interaction,
+        current: str,
+    ) -> List[str]:
+        options =  [
+            "track",
+            "album",
+            "playlist"
+        ]
+        return [
+            app_commands.Choice(name=option.capitalize(), value=option)
+            for option in options if current.lower() in option.lower()
+        ]
+    
+    async def play_query_autocomplete(
+        self,
+        interaction: Interaction,
+        current: str,
+    ) -> List[str]:
+        choices = []
+        if 'querytype' not in interaction.namespace or interaction.namespace['querytype'] == "track":
+            if current == "":
+                songs = await subsonic.get_random_songs(size=env.BOT_SEARCH_SUGGESTION_COUNT)
+            else:
+                songs = (await subsonic.search(current, artist_count=0, album_count=0, song_count=env.BOT_SEARCH_SUGGESTION_COUNT)).songs
+            choices = [
+                app_commands.Choice(name=f"{song.artist} - {song.title}", value=f"{song.artist} {song.title}")
+                for song in songs
+            ]
+        elif interaction.namespace['querytype'] == "album":
+            if current == "":
+                albums = await subsonic.list_albums("random", size=env.BOT_SEARCH_SUGGESTION_COUNT)
+            else:
+                albums = (await subsonic.search(current, artist_count=0, album_count=env.BOT_SEARCH_SUGGESTION_COUNT, song_count=0)).albums
+            choices = [
+                app_commands.Choice(name=f"{album.artist} - {album.name}", value=f"{album.artist} {album.name}")
+                for album in albums
+            ]
+        elif interaction.namespace['querytype'] == "playlist":
+            playlists = await subsonic.get_user_playlists()
+            choices = [
+                app_commands.Choice(name=playlist["name"], value=playlist["name"])
+                for playlist in playlists if current.lower() in playlist["name"].lower()
+            ]
+            del choices[env.BOT_SEARCH_SUGGESTION_COUNT:]
+        return choices
+
     @app_commands.command(name="play", description="Plays a specified track, album or playlist")
     @app_commands.describe(querytype="Whether what you're searching is a track, album or playlist", query="Enter a search query")
-    @app_commands.choices(querytype=[
-        app_commands.Choice(name="Track", value="track"),
-        app_commands.Choice(name="Album", value="album"),
-        app_commands.Choice(name="Playlist", value="playlist"),
-    ])
-    async def play(self, interaction: discord.Interaction, querytype: str=None, query: str=None) -> None:
+    @app_commands.autocomplete(querytype=play_querytype_autocomplete)
+    @app_commands.autocomplete(query=play_query_autocomplete)
+    async def play(self, interaction: Interaction, querytype: str=None, query: str=None) -> None:
         ''' Play a track matching the given title/artist query '''
 
         # Check if user is in voice channel
         if interaction.user.voice is None:
-            return await ui.ErrMsg.user_not_in_voice_channel(interaction)
+            await ui.ErrMsg.user_not_in_voice_channel(interaction)
+            return
 
         # Get a valid voice channel connection
         voice_client = await self.get_voice_client(interaction, should_connect=True)
 
+        if voice_client is None:
+            return
+
         # Don't attempt playback if the bot is already playing
         if voice_client.is_playing() and query is None:
-            return await ui.ErrMsg.already_playing(interaction)
+            await ui.ErrMsg.already_playing(interaction)
+            return
 
         # Get the guild's player
         player = data.guild_data(interaction.guild_id).player
+        player.channel = interaction.channel
 
         # Check queue if no query is provided
         if query is None:
 
             # Display error if queue is empty & autoplay is disabled
             if player.queue == [] and data.guild_properties(interaction.guild_id).autoplay_mode == data.AutoplayMode.NONE:
-                return await ui.ErrMsg.queue_is_empty(interaction)
+                await ui.ErrMsg.queue_is_empty(interaction)
+                return
 
             # Begin playback of queue
             await ui.SysMsg.starting_queue_playback(interaction)
-            await player.play_audio_queue(interaction, voice_client)
+            await player.play_audio_queue(voice_client)
             return
 
-        # Check querytype is not blank
-        if querytype is None:
-            return await ui.ErrMsg.msg(interaction, "Please provide a query type.")
-
-        # Check if the query is a track
-        if querytype == "track":
+        # Check if the query is a track or empty (default to track search if empty)
+        if querytype == "track" or querytype == None:
 
             # Send our query to the subsonic API and retrieve a list of 1 song
-            songs = await subsonic.search(query, artist_count=0, album_count=0, song_count=1)
+            songs = (await subsonic.search(query, artist_count=0, album_count=0, song_count=1)).songs
             if songs == "Error":
                 await ui.ErrMsg.msg(interaction, f"An api error has occurred and has been logged to console. Please contact an administrator.")
                 return
@@ -129,13 +308,19 @@ class MusicCog(commands.Cog):
 
         elif querytype == "album":
 
-            # Send query to subsonic API and retrieve a list of 1 album
-            album = await subsonic.search_album(query)
-            if album == None:
+            try:
+                response = await subsonic.search(query, artist_count=0, album_count=1, song_count=0)
+            except subsonic.APIError as e:
+                logger.error(f"An API error has occurred while searching for an album, code {e.code}: {e.message}")
+                await ui.ErrMsg.msg(interaction, "An API error has occurred and has been logged to console. Please contact an administrator.")
+                return
+
+            if len(response.albums) == 0:
                 await ui.ErrMsg.msg(interaction, f"No album found for **{query}**.")
                 return
             
-            # Add all songs from the album to the queue
+            album = await subsonic.get_album(response.albums[0].id)
+
             for song in album.songs:
                 player.queue.append(song)
             
@@ -172,7 +357,7 @@ class MusicCog(commands.Cog):
             
             await ui.SysMsg.added_playlist_to_queue(interaction, playlist)
 
-        await player.play_audio_queue(interaction, voice_client)
+        await player.play_audio_queue(voice_client)
 
     @play.error
     async def play_error(self, ctx, error):
@@ -184,14 +369,42 @@ class MusicCog(commands.Cog):
             await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
 
 
+
+    @app_commands.command(name="next", description="Searches for a track and places it next in the queue")
+    @app_commands.describe(query="Enter a search query")
+    async def play_next(self, interaction: Interaction, query: str) -> None:
+        ''' Search for a track and place it next in the queue '''
+        # This is a duplication of efforts made in the normal play function.
+        # TODO: Fix it.
+
+        voice_client = await self.get_voice_client(interaction, should_connect=True)
+        player = data.guild_data(interaction.guild_id).player
+
+        songs = (await subsonic.search(query, artist_count=0, album_count=0, song_count=1)).songs
+        if songs == "Error":
+            await ui.ErrMsg.msg(interaction, f"An api error has occurred and has been logged to console. Please contact an administrator.")
+            return
+
+        if len(songs) == 0:
+            await ui.ErrMsg.msg(interaction, f"No track found for **{query}**.")
+            return
+  
+        player.queue.insert(0,songs[0])
+        await player.play_audio_queue(voice_client)
+
+        await ui.SysMsg.added_to_queue(interaction, songs[0])
+
+
+
     @app_commands.command(name="stop", description="Stop playing the current track")
-    async def stop(self, interaction: discord.Interaction) -> None:
+    async def stop(self, interaction: Interaction) -> None:
         ''' Disconnect from the active voice channel '''
 
         player = data.guild_data(interaction.guild_id).player
 
         if player.current_song is None:
-            ui.ErrMsg.not_playing(interaction)
+            await ui.ErrMsg.not_playing(interaction)
+            return
 
         # Get the voice client instance for the current guild
         voice_client = await self.get_voice_client(interaction)
@@ -202,12 +415,7 @@ class MusicCog(commands.Cog):
             return
 
         # Stop playback
-        voice_client.stop()
-
-        player.current_song = None
-        
-        # Add current song back to the queue if exists
-        player.queue.insert(0, player.current_song)
+        player.stop(voice_client)
 
         # Display disconnect confirmation
         await ui.SysMsg.stopping_queue_playback(interaction)
@@ -217,8 +425,10 @@ class MusicCog(commands.Cog):
         logging.error(f"An error occurred while stopping playback: {error}")
         await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
 
+
+
     @app_commands.command(name="queue", description="View the current queue")
-    async def show_queue(self, interaction: discord.Interaction) -> None:
+    async def show_queue(self, interaction: Interaction) -> None:
         ''' Show the current queue '''
 
         # Get the audio queue for the current guild
@@ -254,8 +464,10 @@ class MusicCog(commands.Cog):
         logging.error(f"An error occurred while displaying the queue: {error}")
         await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
 
+
+
     @app_commands.command(name="clear", description="Clear the current queue")
-    async def clear_queue(self, interaction: discord.Interaction) -> None:
+    async def clear_queue(self, interaction: Interaction) -> None:
         '''Clear the queue'''
         queue = data.guild_data(interaction.guild_id).player.queue
         queue.clear()
@@ -269,8 +481,9 @@ class MusicCog(commands.Cog):
         await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
 
 
+
     @app_commands.command(name="skip", description="Skip the current track")
-    async def skip(self, interaction: discord.Interaction) -> None:
+    async def skip(self, interaction: Interaction) -> None:
         ''' Skip the current track '''
 
         # Get the voice client instance
@@ -286,12 +499,16 @@ class MusicCog(commands.Cog):
             await ui.ErrMsg.not_playing(interaction)
             return
 
-        await data.guild_data(interaction.guild_id).player.skip_track(interaction, voice_client)
+        player = data.guild_data(interaction.guild_id).player
+        player.channel = interaction.channel
+        await player.skip_track(voice_client)
 
     @skip.error
     async def skip_error(self, ctx, error):
         logging.error(f"An error occurred while skipping a track: {error}")
         await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
+
+
 
     @app_commands.command(name="autoplay", description="Toggles autoplay")
     @app_commands.describe(mode="Determines the method to use when autoplaying")
@@ -300,7 +517,7 @@ class MusicCog(commands.Cog):
         app_commands.Choice(name="Random", value="random"),
         app_commands.Choice(name="Similar", value="similar"),
     ])
-    async def autoplay(self, interaction: discord.Interaction, mode: app_commands.Choice[str]) -> None:
+    async def autoplay(self, interaction: Interaction, mode: app_commands.Choice[str]) -> None:
         ''' Toggles autoplay '''
 
         logger.debug(f"Autoplay mode: {mode.value}")
@@ -325,8 +542,9 @@ class MusicCog(commands.Cog):
         logger.debug(f"Voice client: {voice_client}")
         if voice_client:
             logger.debug(f"Is playing: {voice_client.is_playing()}")
-        if voice_client is not None and not voice_client.is_playing():        
+        if voice_client is not None and not voice_client.is_playing():
             player = data.guild_data(interaction.guild_id).player
+            player.channel = interaction.channel
 
             logger.debug(f"Queue: {player.queue}")
             try:
@@ -335,7 +553,7 @@ class MusicCog(commands.Cog):
                 logger.debug("No current song")
                 
             logger.debug("Playing audio queue...")
-            await player.play_audio_queue(interaction, voice_client)
+            await player.play_audio_queue(voice_client)
         
     @autoplay.error
     async def autoplay_error(self, ctx, error):
@@ -346,8 +564,10 @@ class MusicCog(commands.Cog):
             logging.error(f"An error occurred while toggling autoplay: {error}")
             await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
 
+
+
     @app_commands.command(name="shuffle", description="Shuffles the current queue")
-    async def shuffle(self, interaction: discord.Interaction):
+    async def shuffle(self, interaction: Interaction):
         ''' Randomize current queue using Fisher-Yates algorithm '''
         temporaryqueue = copy.deepcopy(data.guild_data(interaction.guild_id).player.queue)
         shuffledqueue = []
@@ -363,9 +583,23 @@ class MusicCog(commands.Cog):
         logging.error(f"An error occurred while shuffling the queue: {error}")
         await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
 
+
+
+    async def disco_artist_autocomplete(
+        self,
+        interaction: Interaction,
+        current: str,
+    ) -> List[str]:
+        artists = (await subsonic.search(current, artist_count=env.BOT_SEARCH_SUGGESTION_COUNT, album_count=0, song_count=0)).artists
+        return [
+            app_commands.Choice(name=artist.name, value=artist.name)
+            for artist in artists
+        ]
+
     @app_commands.command(name="disco", description="Plays the artist's entire discography")
     @app_commands.describe(artist="The artist to play")
-    async def disco(self, interaction: discord.Interaction, artist: str):
+    @app_commands.autocomplete(artist=disco_artist_autocomplete)
+    async def disco(self, interaction: Interaction, artist: str):
         ''' Play the artist's entire discography'''
 
         # Get a valid voice channel connection
@@ -373,6 +607,7 @@ class MusicCog(commands.Cog):
 
         # Get the guild's player
         player = data.guild_data(interaction.guild_id).player
+        player.channel = interaction.channel
 
         # Send our query to the subsonic API and retrieve list of albums in artist's discography
         albums = await subsonic.get_artist_discography(artist)
@@ -389,7 +624,7 @@ class MusicCog(commands.Cog):
         await ui.SysMsg.added_discography_to_queue(interaction, artist, albums)
 
         # Begin playback of queue
-        await player.play_audio_queue(interaction, voice_client)
+        await player.play_audio_queue(voice_client)
 
     @disco.error
     async def disco_error(self, ctx, error):
@@ -399,6 +634,7 @@ class MusicCog(commands.Cog):
         else:
             logging.error(f"An error occurred while playing an artist's discography: {error}")
             await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
+
 
 
     @app_commands.command(name="playlists", description="List all playlists")
@@ -426,7 +662,7 @@ class MusicCog(commands.Cog):
         if output == "":
             output = "No playlists found."
 
-        # Show the user their queue
+        # Show the user the list
         await ui.SysMsg.msg(interaction, "Available playlists", output)
 
     @list_playlists.error
@@ -437,6 +673,67 @@ class MusicCog(commands.Cog):
         else:
             logging.error(f"An error occurred while fetching playlists: {error}")
             await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
+
+
+
+    async def list_playlist_query_autocomplete(
+        self,
+        interaction: Interaction,
+        current: str,
+    ) -> List[str]:
+        playlists = await subsonic.get_user_playlists()
+        playlists = [
+            app_commands.Choice(name=playlist["name"], value=playlist["name"])
+            for playlist in playlists if current.lower() in playlist["name"].lower()
+        ]
+        del playlists[env.BOT_SEARCH_SUGGESTION_COUNT:]
+        return playlists
+
+    @app_commands.command(name="playlist", description="List tracks in the given playlist")
+    @app_commands.describe(query="Enter the name of a playlist", page="The page to view")
+    @app_commands.autocomplete(query=list_playlist_query_autocomplete)
+    async def list_playlist(self, interaction, query: str=None, page: int=1):
+        if query == None:
+            await ui.ErrMsg.msg(interaction, f"Please provide the name of a playlist.")
+            return
+
+        # Send query to subsonic API and retrieve a list of all playlists
+        playlists = await subsonic.get_user_playlists()
+        if playlists == None:
+            await ui.ErrMsg.msg(interaction, f"No playlists found.")
+            return
+
+        # Search for a playlist matching the given name
+        found_playlist_id = None
+        for playlist in playlists:
+            if playlist["name"] == query:
+                found_playlist_id = playlist["id"]
+                break
+        if found_playlist_id == None:
+            await ui.ErrMsg.msg(interaction, "No playlist with that name was found.")
+            return
+        
+        found_playlist = await subsonic.get_playlist(found_playlist_id)
+        if len(found_playlist.songs) < 1:
+            await ui.ErrMsg.msg(interaction, "Playlist is empty.")
+            return
+        
+        # Paginate playlists
+        paginated_tracks = ListPaginator(found_playlist.songs, 20)
+        if len(paginated_tracks.pages) < page:
+            await ui.ErrMsg.msg(interaction, "Page does not exist.")
+            return
+        
+        # Assemble output
+        output = f"{found_playlist.song_count} songs - {found_playlist.duration_printable}\n\n"
+        for i, pag_item in enumerate(paginated_tracks.pages[page - 1]):
+            song = pag_item["data"]
+            song_number = pag_item["input_index"] + 1
+            output += f"{song_number}. {song.artist} - **{song.title}** {(song.duration // 60):02d}m {(song.duration % 60):02d}s\n\n"
+        output += f"Page {page} of {paginated_tracks.num_pages}"
+
+        await ui.SysMsg.msg(interaction, "Playlist '"+found_playlist.name+"'", output)
+
 
 
     @commands.Cog.listener()
@@ -466,6 +763,8 @@ class MusicCog(commands.Cog):
                 logger.info("The bot has disconnected and cleared the queue as there are no users in the voice channel.")
             else:
                 logger.debug("Bot is no longer alone in voice channel, aborting disconnect...")
+
+
 
 async def setup(bot: DiscodromeClient):
     ''' Setup function for the music.py cog '''

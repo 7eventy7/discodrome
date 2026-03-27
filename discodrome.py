@@ -22,7 +22,15 @@ class DiscodromeClient(commands.Bot):
     def __init__(self, test_guild: int=None) -> None:
         self.test_guild = test_guild
 
-        super().__init__(command_prefix=commands.when_mentioned, intents=discord.Intents.default())
+        if env.BOT_PREFIX != None:
+            if len(env.BOT_PREFIX) > 0:
+                logger.info(f'Command prefix is {env.BOT_PREFIX}')
+            else:
+                logger.info(f'Command prefix is an empty string. ALL MESSAGES WILL BE INTERPRETED AS COMMANDS.')
+        else:
+            logger.info(f'Command prefix not set.')
+        prefix = commands.when_mentioned if env.BOT_PREFIX == None else commands.when_mentioned_or(env.BOT_PREFIX)
+        super().__init__(command_prefix=prefix, intents=discord.Intents.all())
 
     async def load_extensions(self) -> None:
         ''' Auto-loads all extensions present within the `./extensions` directory. '''
@@ -63,6 +71,17 @@ class DiscodromeClient(commands.Bot):
         if self.test_guild:
             await self.sync_command_tree()
 
+        loop = asyncio.get_running_loop()
+        loop.add_signal_handler(signal.SIGTERM, lambda: asyncio.ensure_future(self._on_sigterm()))
+
+    async def _on_sigterm(self) -> None:
+        ''' Graceful shutdown on SIGTERM. '''
+        logger.debug("Beginning graceful shutdown...")
+        data.save_guild_properties_to_disk()
+        await close_session()
+        logger.info("Discodrome shutdown complete.")
+        await self.close()
+
     async def on_ready(self) -> None:
         ''' Event called when the client is done preparing. '''
 
@@ -78,19 +97,3 @@ if __name__ == "__main__":
     client = DiscodromeClient(test_guild=env.DISCORD_TEST_GUILD)
     client.run(env.DISCORD_BOT_TOKEN, log_handler=None)
 
-def exit_handler(signum, frame):
-    ''' Function ran on application exit. '''
-    logger.debug("Beginning graceful shutdown...")
-    data.save_guild_properties_to_disk()
-    try:
-        loop = asyncio.get_event_loop()
-        loop.create_task(close_session())
-    except RuntimeError:
-        # If we can't get the event loop, create a new one as a fallback
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(close_session())
-    logger.info("Discodrome shutdown complete.")
-
-# Register the exit handler
-signal.signal(signal.SIGTERM, exit_handler)

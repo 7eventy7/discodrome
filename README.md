@@ -8,66 +8,88 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/7eventy7/discodrome.svg)](https://hub.docker.com/r/7eventy7/discodrome)
 [![License](https://img.shields.io/github/license/7eventy7/discodrome.svg)](https://github.com/7eventy7/discodrome/blob/main/LICENSE)
 
-A discord music bot that seamlessly streams music from your personal music server directly to your voice channels. Works great with Navidrome, and other subsonic compatible music servers.
+A Discord music bot that seamlessly streams music from your personal music server directly to your voice channels. Works great with Navidrome and other Subsonic-compatible music servers.
 
 </div>
 
 ---
 
-## 🎮 Commands
+## Commands
+
+### Slash Commands
 
 | Command | Description |
 |---------|-------------|
-| `/play` | Plays a specified track, album or playlist |
-| `/disco` | Plays an artist's entire discography |
+| `/play` | Place a specified track, album, or playlist at the end of the queue and start playing |
+| `/next` | Place a specified track next in the queue and start playing |
+| `/disco` | Play an artist's entire discography |
 | `/queue` | View the current queue |
 | `/clear` | Clear the current queue |
-| `/shuffle` | Shuffles the current queue |
+| `/shuffle` | Shuffle the current queue |
 | `/skip` | Skip the current track |
 | `/stop` | Stop playing the current track |
 | `/autoplay` | Toggle autoplay |
 | `/playlists` | List available playlists |
+| `/playlist` | List songs in a playlist |
 
-## 🚀 Complete Setup Guide
+### Prefix Commands
 
-### Step 1: Create a Discord Bot
+| Command | Description |
+|---------|-------------|
+| `p` | Place a specified track at the end of the queue and start playing |
+| `n` | Place a specified track next in the queue and start playing |
+| `s` | Skip the current track |
+| `q` | View the current queue |
+
+---
+
+## Requirements
+
+- Docker running on an x64 or ARM device
+
+**For non-Docker deployment or development:**
+- Python 3.10 or later
+- FFmpeg available in PATH
+
+---
+
+## Quick Start
+
+### Step 1 — Create a Discord Bot
 
 1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
-2. Click "New Application" and give it a name
-3. Navigate to the "Bot" tab and click "Add Bot"
-4. Under the TOKEN section, click "Reset Token" and copy your new token
+2. Click **New Application** and give it a name
+3. Navigate to the **Bot** tab and click **Add Bot**
+4. Under the TOKEN section, click **Reset Token** and copy your new token
 5. Enable the following Privileged Gateway Intents:
    - `MESSAGE CONTENT INTENT`
    - `SERVER MEMBERS INTENT`
    - `PRESENCE INTENT`
-6. Navigate to "OAuth2" → "URL Generator"
-7. Select the following scopes:
-   - `bot`
-   - `applications.commands`
-8. Select bot permissions: 
-  - `Send Messages`
-  - `Connect`
-  - `Speak`
-  - `Use Voice Activity`
-  - `Read Message History`
-9. Copy the generated URL and paste it in your browser to invite the bot to your server
+6. Navigate to **OAuth2 → URL Generator**
+7. Select the following scopes: `bot`, `applications.commands`
+8. Select bot permissions: `Send Messages`, `Connect`, `Speak`, `Use Voice Activity`, `Read Message History`
+9. Copy the generated URL and paste it into your browser to invite the bot to your server
 
-### Step 2: Set Up Your Environment
+### Step 2 — Gather Required Information
 
-#### Required Information:
-- **Discord Bot Token**: From step 1
-- **Discord Server ID**: Right-click your server icon → "Copy ID" (Developer Mode must be enabled in Discord settings)
-- **Your Discord User ID**: Right-click your username → "Copy ID"
-- **Subsonic Server Details**: URL, username, and password for your music server
+- **Discord Bot Token** — from Step 1
+- **Discord Server ID** — right-click your server icon and select **Copy ID** (requires Developer Mode enabled in Discord settings)
+- **Your Discord User ID** — right-click your username and select **Copy ID**
+- **Subsonic Server Details** — URL, username, and password for your music server
 
-### Step 3: Deploy with Docker
+### Step 3 — Deploy with Docker
 
-1. Pull the Docker image:
-`docker pull 7eventy7/discodrome:latest`
+Pull the Docker image:
 
-2. Run the container with the required environment variables from the configuration section below:
+```
+docker pull 7eventy7/discodrome:latest
+```
 
-## ⚙️ Configuration Options
+Then run the container with the environment variables described in the Configuration section below.
+
+---
+
+## Configuration
 
 ### Environment Variables
 
@@ -81,6 +103,8 @@ A discord music bot that seamlessly streams music from your personal music serve
 | `DISCORD_TEST_GUILD` | Discord server ID where commands will be registered | Yes |
 | `DISCORD_OWNER_ID` | Your Discord user ID | Yes |
 | `BOT_STATUS` | Custom status message for the bot | No |
+| `BOT_PREFIX` | Command prefix for the bot. If unset, prefix commands can still be used with an @mention. An empty string will cause all messages to be interpreted as commands. | No |
+| `BOT_SEARCH_SUGGESTION_COUNT` | Number of items to display in the autocomplete menu. Defaults to 5. | No |
 
 ### Supported Subsonic Servers
 
@@ -91,35 +115,34 @@ A discord music bot that seamlessly streams music from your personal music serve
 - Ampache (with Subsonic API enabled)
 - Jellyfin (with Subsonic plugin)
 
-## 🛠️ Technical Stack
+---
 
-- Discord.js v14
-- Node.js
-- Subsonic API
-- Docker
-- FFmpeg for audio processing
+## Contributing
 
-## 👥 Contributing
+Contributions are welcome. This includes:
 
-We welcome contributions! Whether it's:
-- 🐛 Reporting bugs
-- 💡 Suggesting features
-- 📝 Improving documentation
-- 🔍 Submitting fixes
-- ✨ Adding new features
+- Reporting bugs
+- Suggesting features
+- Improving documentation
+- Submitting fixes
+- Adding new features
 
-Please check our [GitHub Issues](https://github.com/7eventy7/discodrome/issues) before submitting new ones.
+Please check the [GitHub Issues](https://github.com/7eventy7/discodrome/issues) page before submitting new ones.
 
-## 📝 License
+---
 
-GPL-3.0 license - feel free to use this project for most any purpose.
+## License
 
-## 🙏 Acknowledgments
+GPL-3.0 — free to use for most purposes.
 
-This project is a fork of [Submeister](https://github.com/Gimzie/submeister) by Gimzie. We've built upon their excellent foundation to add new features and improvements while maintaining the core functionality that made the original project great.
+---
+
+## Acknowledgments
+
+This project is a fork of [Submeister](https://github.com/Gimzie/submeister) by Gimzie. Built upon their foundation with additional features and improvements while preserving the core functionality of the original.
 
 ---
 
 <div align="center">
-Forked with ❤️ by <a href="https://github.com/7eventy7">7eventy7</a>
+Forked with care by <a href="https://github.com/7eventy7">7eventy7</a>
 </div>
