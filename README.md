@@ -76,6 +76,7 @@ A Discord music bot that seamlessly streams music from your personal music serve
 - **Discord Server ID** — right-click your server icon and select **Copy ID** (requires Developer Mode enabled in Discord settings)
 - **Your Discord User ID** — right-click your username and select **Copy ID**
 - **Subsonic Server Details** — URL, username, password and auth mode for your music server
+  - Use token auth mode unless you have a good reason not to
 
 ### Step 3 — Deploy with Docker
 
@@ -98,7 +99,7 @@ Then run the container with the environment variables described in the Configura
 | `SUBSONIC_SERVER` | URL of your Subsonic server (include http/https) | Yes |
 | `SUBSONIC_USER` | Username for your Subsonic server | Yes |
 | `SUBSONIC_PASSWORD` | Password or auth token for your Subsonic server | Yes |
-| `SUBSONIC_AUTH_MODE` | Authentication mode: `plaintext` or `token` | Yes |
+| `SUBSONIC_AUTH_MODE` | Authentication mode: `plaintext` or `token`. Token auth is highly recommended for security. | Yes |
 | `DISCORD_BOT_TOKEN` | Your Discord bot token | Yes |
 | `DISCORD_TEST_GUILD` | Discord server ID where commands will be registered | Yes |
 | `DISCORD_OWNER_ID` | Your Discord user ID | Yes |
