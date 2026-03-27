@@ -19,19 +19,27 @@ def _get_auth_params() -> dict:
     
     Supports two authentication modes:
     - plaintext: Uses the configured password directly.
-    - token: Uses MD5(password + salt) for enhanced security (available since Subsonic API v1.13.0; this client requests v1.16.0).
+    - token: Uses MD5(password + salt) for enhanced security (available since Subsonic API v1.13.0; this client requests v1.15.0).
     
     Returns:
         dict: Authentication parameters including username, version, client name,
               format, and either password (plaintext mode) or token+salt (token mode)
     """
+    auth_mode = env.SUBSONIC_AUTH_MODE
+    if auth_mode not in ("plaintext", "token"):
+        raise ValueError(
+            "SUBSONIC_AUTH_MODE must be 'plaintext' or 'token', "
+            f"got: {auth_mode!r}"
+        )
+
     auth_params = {
         "u": env.SUBSONIC_USER,
         "c": "discodrome",
-        "f": "json"
+        "f": "json",
+        "v": "1.15.0"
     }
     
-    if env.SUBSONIC_AUTH_MODE == "token":
+    if auth_mode == "token":
         # Use token-based authentication with salt
         # Generate a new salt for each request for security
         salt = secrets.token_hex(16)
@@ -40,11 +48,9 @@ def _get_auth_params() -> dict:
         token = hashlib.md5((env.SUBSONIC_PASSWORD + salt).encode()).hexdigest()
         auth_params["t"] = token
         auth_params["s"] = salt
-        auth_params["v"] = "1.16.0"
     else:
         # Use plaintext authentication (default)
         auth_params["p"] = env.SUBSONIC_PASSWORD
-        auth_params["v"] = "1.15.0"
     
     return auth_params
 
