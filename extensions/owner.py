@@ -24,3 +24,8 @@ class OwnerCog(commands.Cog):
         await self.bot.sync_command_tree()
         if (interaction.message is not None):
             await interaction.message.reply("Commands synced")
+
+async def setup(bot: DiscodromeClient):
+    ''' Setup function for the owner.py cog '''
+
+    await bot.add_cog(OwnerCog(bot))
