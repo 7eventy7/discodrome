@@ -55,9 +55,12 @@ class DiscodromeClient(commands.Bot):
     async def sync_command_tree(self) -> None:
         ''' Synchronizes the command tree with the guild used for testing. '''
 
-        guild = discord.Object(self.test_guild)
-        self.tree.copy_global_to(guild=guild)
-        await self.tree.sync(guild=guild)
+        if self.test_guild:
+            guild = discord.Object(self.test_guild)
+            self.tree.copy_global_to(guild=guild)
+            await self.tree.sync(guild=guild)
+        else:
+            await self.tree.sync()
 
     async def setup_hook(self) -> None:
         ''' Setup done after login, prior to events being dispatched. '''
@@ -68,8 +71,7 @@ class DiscodromeClient(commands.Bot):
         else:
             logger.error("Subsonic API is unreachable.")
 
-        if self.test_guild:
-            await self.sync_command_tree()
+        await self.sync_command_tree()
 
         loop = asyncio.get_running_loop()
         loop.add_signal_handler(signal.SIGTERM, lambda: asyncio.ensure_future(self._on_sigterm()))
@@ -96,4 +98,3 @@ if __name__ == "__main__":
     data.load_guild_properties_from_disk()
     client = DiscodromeClient(test_guild=env.DISCORD_TEST_GUILD)
     client.run(env.DISCORD_BOT_TOKEN, log_handler=None)
-
