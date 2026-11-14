@@ -177,7 +177,7 @@ class Player():
                     logger.error("Voice client disconnected before playing")
                     await self._send("Error", "Voice connection was lost. Please try again.")
                     return
-                await self._set_voice_status(updated_status=f"Currently playing: {song.title}", voice_client=voice_client)
+                await self._set_voice_status(updated_status=f"Currently playing: {song.title} by {song.artist}", voice_client=voice_client)
                 voice_client.play(audio_src, after=lambda e: loop.create_task(playback_finished(e)))
                 logger.info(f"Started playing: {song.title} by {song.artist}")
                 return  # Success, exit the function
