@@ -83,14 +83,19 @@ class Player():
                 logger.error(f"Failed to attach thumbnail: {e}")
         await self.channel.send(file=file, embed=embed)
 
-    async def _set_voice_status(self, updated_status: str, voice_client: discord.VoiceClient) -> None:
+    async def _set_voice_status(self, updated_status: str | None, voice_client: discord.VoiceClient) -> None:
         ''' Sets the status of the current voice channel'''
         if not isinstance(voice_client.channel, discord.VoiceChannel):
             '''
-            Stick to voice channels, since stage channels generally have a specific purpose that Yeah,it's workingonmineso what that's tellingme
+            Stick to voice channels, since stage channels generally have a specific purpose that the server moderation team might not want.
             '''
             return 
-        
+        #Get voice channel
+        current_channel : discord.VoiceChannel = voice_client.channel
+        if updated_status is not None:
+            updated_status = updated_status[:500]
+
+        await current_channel.edit(status=updated_status)
 
         
 
