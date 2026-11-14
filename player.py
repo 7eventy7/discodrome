@@ -83,9 +83,16 @@ class Player():
                 logger.error(f"Failed to attach thumbnail: {e}")
         await self.channel.send(file=file, embed=embed)
 
+    async def _set_voice_status(self, updated_status: str, voice_client: discord.VoiceClient) -> None:
+        ''' Sets the status of the current voice channel'''
+        if not isinstance(voice_client.channel, discord.VoiceChannel):
+            '''
+            Stick to voice channels, since stage channels generally have a specific purpose that Yeah,it's workingonmineso what that's tellingme
+            '''
+            return 
+        
 
-
-
+        
 
     async def stream_track(self, song: Song, voice_client: discord.VoiceClient) -> None:
         ''' Streams a track from the Subsonic server to a connected voice channel, and updates guild data accordingly '''
@@ -109,6 +116,7 @@ class Player():
         # Get the stream from the Subsonic server, using the provided song's ID
         ffmpeg_options = {"before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
                            "options": "-filter:a volume=replaygain=track"}
+        
         try:
             stream_url = await stream(song.song_id)
             if not stream_url:
@@ -218,7 +226,8 @@ class Player():
         
         self.queue.append(songs[0])
         return True
-
+    
+    
 
     async def play_audio_queue(self, voice_client: discord.VoiceClient) -> None:
         ''' Plays the audio queue '''
@@ -241,6 +250,7 @@ class Player():
             desc = f"**{song.title}** - *{song.artist}*\n{song.album} ({song.duration_printable})"
             await self._send("Now Playing:", desc, cover_art)
             await self.stream_track(song, voice_client)
+            
         else:
             logger.debug("Queue is empty.")
             logger.debug("Current song: %s", self.current_song)
