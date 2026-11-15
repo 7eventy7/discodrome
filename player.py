@@ -97,7 +97,6 @@ class Player():
 
         await current_channel.edit(status=updated_status)
 
-        
 
     async def stream_track(self, song: Song, voice_client: discord.VoiceClient) -> None:
         ''' Streams a track from the Subsonic server to a connected voice channel, and updates guild data accordingly '''
@@ -233,8 +232,6 @@ class Player():
         
         self.queue.append(songs[0])
         return True
-    
-    
 
     async def play_audio_queue(self, voice_client: discord.VoiceClient) -> None:
         ''' Plays the audio queue '''
@@ -257,7 +254,6 @@ class Player():
             desc = f"**{song.title}** - *{song.artist}*\n{song.album} ({song.duration_printable})"
             await self._send("Now Playing:", desc, cover_art)
             await self.stream_track(song, voice_client)
-            
         else:
             logger.debug("Queue is empty.")
             logger.debug("Current song: %s", self.current_song)
