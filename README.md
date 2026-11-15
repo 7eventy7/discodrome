@@ -68,7 +68,7 @@ A Discord music bot that seamlessly streams music from your personal music serve
    - `PRESENCE INTENT`
 6. Navigate to **OAuth2 → URL Generator**
 7. Select the following scopes: `bot`, `applications.commands`
-8. Select bot permissions: `Send Messages`, `Connect`, `Speak`, `Use Voice Activity`, `Read Message History`
+8. Select bot permissions: `Send Messages`, `Connect`, `Speak`, `Use Voice Activity`, `Read Message History`, `Set Voice Channel Status`
 9. Copy the generated URL and paste it into your browser to invite the bot to your server
 
 ### Step 2 — Gather Required Information

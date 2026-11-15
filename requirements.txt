@@ -1,5 +1,5 @@
 discord.py>=2.7.0
-davey
+davey>=0.1.7,<0.2
 pynacl
 python-dotenv
 requests

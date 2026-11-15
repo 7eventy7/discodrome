@@ -83,8 +83,19 @@ class Player():
                 logger.error(f"Failed to attach thumbnail: {e}")
         await self.channel.send(file=file, embed=embed)
 
+    async def _set_voice_status(self, updated_status: str | None, voice_client: discord.VoiceClient) -> None:
+        ''' Sets the status of the current voice channel'''
+        if not isinstance(voice_client.channel, discord.VoiceChannel):
+            '''
+            Stick to voice channels, since stage channels generally have a specific purpose that the server moderation team might not want.
+            '''
+            return 
+        #Get voice channel
+        current_channel : discord.VoiceChannel = voice_client.channel
+        if updated_status is not None:
+            updated_status = updated_status[:500]
 
-
+        await current_channel.edit(status=updated_status)
 
 
     async def stream_track(self, song: Song, voice_client: discord.VoiceClient) -> None:
@@ -109,6 +120,7 @@ class Player():
         # Get the stream from the Subsonic server, using the provided song's ID
         ffmpeg_options = {"before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
                            "options": "-filter:a volume=replaygain=track"}
+        
         try:
             stream_url = await stream(song.song_id)
             if not stream_url:
@@ -132,6 +144,8 @@ class Player():
 
         # Handle playback finished
         async def playback_finished(error):
+            #Reset the status
+            await self._set_voice_status(updated_status=None, voice_client=voice_client)
             if error:
                 logger.error(f"An error occurred while playing the audio: {error}")
                 return
@@ -162,7 +176,7 @@ class Player():
                     logger.error("Voice client disconnected before playing")
                     await self._send("Error", "Voice connection was lost. Please try again.")
                     return
-
+                await self._set_voice_status(updated_status=f"Currently playing: {song.title} by {song.artist}", voice_client=voice_client)
                 voice_client.play(audio_src, after=lambda e: loop.create_task(playback_finished(e)))
                 logger.info(f"Started playing: {song.title} by {song.artist}")
                 return  # Success, exit the function
@@ -218,7 +232,6 @@ class Player():
         
         self.queue.append(songs[0])
         return True
-
 
     async def play_audio_queue(self, voice_client: discord.VoiceClient) -> None:
         ''' Plays the audio queue '''
